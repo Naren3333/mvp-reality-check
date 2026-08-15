@@ -25,6 +25,13 @@ No installation, API keys, or external services are required. The app starts on 
 
 The local server recursively reads supported source files (JavaScript/TypeScript, Vue, Svelte, Python, Ruby, Go, Java, and C#), skips generated/dependency folders, runs deterministic component/route/authorization/test checks, and saves up to 50 audit summaries in `.local-data/audit-history.json`. No source contents are uploaded.
 
+## Working review controls
+
+- Choose a claim template (AI search, secure export, or generic) and optionally change the persisted, JSON-defined evidence rules with **Edit rules**.
+- Each local audit shows the repository's Git branch, short commit, working-tree state, and a comparison with the preceding saved audit for that repository/template.
+- The app discovers declared `npm test` scripts but deliberately does **not** execute repository code; that keeps the prototype read-only and safe to run against an unfamiliar checkout.
+- A reviewer can record a final decision and rationale in the browser, then export a Markdown hand-off report or JSON evidence pack.
+
 ## Optional Codex review step
 
 After an audit, the app can copy a constrained Codex review prompt or export an evidence pack. Paste that into your signed-in Codex client to get an explanation of the cited evidence and questions for a reviewer. This is deliberately manual and optional: Codex does not set the verdict, and the demo uses no API key.
