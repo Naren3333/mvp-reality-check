@@ -122,6 +122,7 @@ async function discoverTests(repoPath) {
       const packageDirectory = dirname(manifest).replace(/\\/g, '/');
       for (const [name, script] of Object.entries(pkg.scripts || {})) {
         if (!/test|e2e|lint|typecheck|check|build/i.test(name)) continue;
+        if (!/^[A-Za-z0-9:_-]+$/.test(name)) continue;
         const command = packageDirectory === '.' ? `npm run ${name}` : `npm --prefix ${packageDirectory} run ${name}`;
         commands.push({ manifest, packageDirectory, name, command, script });
       }
@@ -214,7 +215,9 @@ async function runTrustedLocalTest(repoPath, command) {
     : ['run', selectedCommand.name];
   const startedAt = new Date().toISOString();
   try {
-    const result = await execFileAsync(process.platform === 'win32' ? 'npm.cmd' : 'npm', args, { cwd: repoPath, timeout: 180_000, maxBuffer: 20_000_000 });
+    const result = process.platform === 'win32'
+      ? await execFileAsync('cmd.exe', ['/d', '/s', '/c', `npm.cmd ${args.join(' ')}`], { cwd: repoPath, timeout: 180_000, maxBuffer: 20_000_000 })
+      : await execFileAsync('npm', args, { cwd: repoPath, timeout: 180_000, maxBuffer: 20_000_000 });
     return { status: 'passed', docker: null, command, startedAt, finishedAt: new Date().toISOString(), setup: { status: 'not-run', log: 'No dependency installation was run.' }, test: { status: 'passed', exitCode: 0, log: trimLog(`${result.stdout}\n${result.stderr}`), network: 'not controlled by this local runner' }, boundary: 'This command ran locally in the reviewer-selected repository, not in a disposable sandbox. It may create repository build or test files. It does not prove production behaviour, security, or complete coverage.' };
   } catch (error) {
     const detail = error instanceof Error ? error : new Error('Local command failed.');
