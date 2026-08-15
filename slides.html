@@ -27,24 +27,24 @@
           <div class="slide-heading">
             <p class="eyebrow">Interview demo · working artifact</p>
             <h1>A working prototype —<br /><span>not just a concept.</span></h1>
-            <p class="lede">A claim-first evidence audit that stays local, cited, and reviewable.</p>
+            <p class="lede">A claim-first evidence audit with local and public-GitHub source checks, bounded test runs, and human review.</p>
           </div>
 
           <div class="prototype-layout">
             <figure class="screenshot-frame">
-              <div class="screenshot-label"><span class="status-dot"></span>LIVE LOCAL PROTOTYPE <b>localhost:4173</b></div>
+              <div class="screenshot-label"><span class="status-dot"></span>LIVE LOCAL PROTOTYPE <b>localhost:4176</b></div>
               <img src="appss.png" alt="MVP Reality Check claim-auditing interface with a claim input, local repository selector, and audit button" />
-              <figcaption>Claim → local repository scan → cited evidence, gaps, bounded verdict, audit trace</figcaption>
+              <figcaption>Claim → local or public-GitHub scan → cited evidence, gaps, bounded verdict, audit trace</figcaption>
             </figure>
 
             <aside class="proof-list">
               <p class="eyebrow">What this proves</p>
               <ol>
-                <li><b>01</b><span><strong>Claim-first workflow</strong> — start from the product assertion, not a code search.</span></li>
+                <li><b>01</b><span><strong>Claim-first workflow</strong> — start from the product assertion, then choose a local repository or public GitHub URL.</span></li>
                 <li><b>02</b><span><strong>Evidence-linked result</strong> — SyncSpace search exists; AI semantic search is not asserted without retrieval or model evidence.</span></li>
-                <li><b>03</b><span><strong>Review-ready output</strong> — preserve local history, export a constrained evidence pack, and hand the final call to a human.</span></li>
+                <li><b>03</b><span><strong>Bounded execution evidence</strong> — run one declared test/build in Docker, or locally only after an explicit trust confirmation.</span></li>
               </ol>
-              <div class="scope-note"><span>Intentional scope</span><p>Local only. No API key. No cloud upload. No invented runtime or security conclusions.</p></div>
+              <div class="scope-note"><span>Intentional scope</span><p>No API key or cloud upload. Public repositories are shallow-cloned locally; source and test results never become production or security proof.</p></div>
             </aside>
           </div>
 
@@ -54,35 +54,35 @@
         <article class="slide" data-slide="1" aria-label="Slide 2: the prototype has deliberate boundaries before scale" hidden>
           <div class="slide-heading compact-heading">
             <p class="eyebrow">Product judgment · deliberate boundaries</p>
-            <h1>A working core —<br /><span>with honest reasons to stop here.</span></h1>
-            <p class="lede">The prototype proves the claim-to-evidence loop locally. The missing capabilities are production decisions, not ignored checkboxes.</p>
+            <h1>A working core —<br /><span>with honest boundaries.</span></h1>
+            <p class="lede">The prototype proves a claim-to-evidence loop across local folders and public GitHub repositories. The remaining gaps are production decisions, not ignored checkboxes.</p>
           </div>
 
           <div class="boundary-layout">
             <section class="core-loop">
               <p class="eyebrow">Core loop proven</p>
               <ol>
-                <li><b>01</b><span><small>INPUT</small>Explicit product claim + repository</span></li>
-                <li><b>02</b><span><small>CHECK</small>Deterministic source evidence scan</span></li>
-                <li><b>03</b><span><small>OUTPUT</small>Cited evidence, gaps, and bounded verdict</span></li>
+                <li><b>01</b><span><small>INPUT</small>Explicit product claim + local folder or public GitHub URL</span></li>
+                <li><b>02</b><span><small>CHECK</small>Deterministic source scan + optional selected test/build</span></li>
+                <li><b>03</b><span><small>OUTPUT</small>Cited evidence, gaps, execution record, and bounded verdict</span></li>
                 <li><b>04</b><span><small>DECISION</small>Human review and accountability</span></li>
               </ol>
-              <div class="human-boundary"><span>Human boundary</span><p>AI may explain cited evidence; it never determines the verdict.</p></div>
+              <div class="human-boundary"><span>Human boundary</span><p>Codex can explain a reviewer-selected evidence pack; it never runs automatically or determines the verdict.</p></div>
             </section>
-            <section class="deferred-work" aria-label="Capabilities deferred by design">
-              <p class="eyebrow">Deferred by design</p>
+            <section class="deferred-work" aria-label="Current product boundaries">
+              <p class="eyebrow">Current boundaries</p>
               <h2>What is not in v1 — and why</h2>
               <div class="deferred-grid">
-                <article><span>Repository connection</span><p>GitHub / GitLab needs OAuth, token handling, permission design, and consent.</p></article>
-                <article><span>Safe test execution</span><p>Running arbitrary code needs isolated disposable containers to preserve the read-only posture.</p></article>
-                <article><span>Live AI explanation</span><p>Needs a configured model and budget; it remains explanation-only, never verdict generation.</p></article>
-                <article><span>Teams and shared history</span><p>Needs authentication, tenant isolation, retention controls, and audit logging.</p></article>
+                <article><span>Private repository access</span><p>Public HTTPS GitHub URLs work today. Private GitHub/GitLab access needs OAuth, token handling, consent, and permission design.</p></article>
+                <article><span>Arbitrary code execution</span><p>The app runs only a reviewer-selected declared npm script. Docker is isolated; trusted local execution requires explicit confirmation.</p></article>
+                <article><span>Live AI explanation</span><p>No API key is embedded. Codex is a manual, explanation-only review step and never generates a verdict.</p></article>
+                <article><span>Teams and governance</span><p>Shared workspaces need authentication, tenant isolation, retention controls, and durable audit logging.</p></article>
               </div>
             </section>
           </div>
 
           <section class="next-build" aria-label="Deliberate next build">
-            <div><p class="eyebrow">Sensible next build</p><h2>GitHub connection → isolated scan worker → evidence explanation service</h2></div>
+            <div><p class="eyebrow">Sensible next build</p><h2>Private-repo connection → queued isolated workers → evidence explanation service</h2></div>
             <p>Build capability in layers—without weakening accountability.<small>Then: AST/framework adapters · queued large-repository indexing · dependency, CI, and infrastructure evidence · production operations</small></p>
           </section>
 

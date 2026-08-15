@@ -12,7 +12,7 @@ npm run demo
 
 Open [http://localhost:4176](http://localhost:4176). Keep the terminal window open throughout the demo; it is the local server. Press `Ctrl+C` in that window when you want to stop it. This avoids relying on a hidden background process that Windows or a coding tool may clean up.
 
-For the two-slide interview companion, open [http://localhost:4173/slides.html](http://localhost:4173/slides.html) in a second window next to the prototype. Use the arrow keys or Space to advance, or press `F` for presentation mode.
+For the two-slide interview companion, open [http://localhost:4176/slides.html](http://localhost:4176/slides.html) in a second window next to the prototype. Use the arrow keys or Space to advance, or press `F` for presentation mode.
 
 No installation, API keys, or external services are required. The default repository is the local SyncSpace checkout; the included fixed evidence profile remains available as an optional demo fallback.
 
@@ -38,7 +38,7 @@ The server accepts only public `https://github.com/owner/repository` URLs. It ma
 
 - Choose a claim template (AI search, secure export, or generic) and optionally change the persisted, JSON-defined evidence rules with **Edit rules**.
 - Each local audit shows the repository's Git branch, short commit, working-tree state, and a comparison with the preceding saved audit for that repository/template.
-- The app discovers declared `npm test` scripts but deliberately does **not** execute repository code; that keeps the prototype read-only and safe to run against an unfamiliar checkout.
+- The app discovers declared `npm` test, lint, typecheck, and build scripts. It never runs arbitrary commands: a reviewer must explicitly select one for isolated Docker execution or, for a trusted local checkout, explicitly confirm local execution.
 - A reviewer can record a final decision and rationale in the browser, then export a Markdown hand-off report or JSON evidence pack.
 
 ## No-key workflow included
