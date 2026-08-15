@@ -31,6 +31,14 @@
             <input id="claim" type="text" value="Study groups can search shared notes semantically with AI." aria-label="Product claim" />
           </div>
         </div>
+        <div class="field-group template-field">
+          <label for="claimTemplate">Evidence template</label>
+          <select id="claimTemplate">
+            <option value="ai-search">AI / semantic search</option>
+            <option value="secure-export">Secure export</option>
+            <option value="generic">General capability</option>
+          </select>
+        </div>
         <div class="field-group">
           <span class="field-label">Repository</span>
           <button id="repoButton" class="repo-card" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Selected repository: northstar reporting web">
@@ -88,6 +96,7 @@
           </div>
           <p id="boundaryText" class="boundary"><span>Boundary</span>Do not present it as secure without runtime and human verification.</p>
         </div>
+        <p id="gitContext" class="git-context" hidden></p>
 
         <div class="evidence-layout">
           <section class="evidence-section" aria-labelledby="evidence-title">

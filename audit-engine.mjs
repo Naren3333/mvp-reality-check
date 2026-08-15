@@ -50,7 +50,7 @@ function makeGap(title, detail) {
   return { title, detail };
 }
 
-export async function auditRepository(repoPath, claim) {
+export async function auditRepository(repoPath, claim, template = 'generic') {
   const root = await realpath(repoPath);
   const allFiles = await walk(root);
   const source = [];
@@ -62,7 +62,7 @@ export async function auditRepository(repoPath, claim) {
   }
 
   const signals = claimSignals(claim);
-  const aiSearchClaim = /(?:\bai\b|ai-powered|semantic|embedding|\bllm\b)/i.test(claim) && /search/i.test(claim);
+  const aiSearchClaim = template === 'ai-search' || (template === 'generic' && /(?:\bai\b|ai-powered|semantic|embedding|\bllm\b)/i.test(claim) && /search/i.test(claim));
   const componentPattern = /(?:export|report|download)/i;
   const routePathPattern = /(?:api|route|routes|controller|handler)/i;
   const authorizationPattern = /(?:requireRole|hasRole|authorize|authorization|permission|canExport|can[A-Z][A-Za-z]+)/;
@@ -89,6 +89,7 @@ export async function auditRepository(repoPath, claim) {
     return {
       repoName: root.split(sep).filter(Boolean).at(-1) || root,
       repositoryPath: root,
+      template,
       scannedFiles: source.length,
       evidence,
       gaps,
@@ -149,6 +150,7 @@ export async function auditRepository(repoPath, claim) {
   return {
     repoName: root.split(sep).filter(Boolean).at(-1) || root,
     repositoryPath: root,
+    template,
     scannedFiles: source.length,
     evidence,
     gaps,

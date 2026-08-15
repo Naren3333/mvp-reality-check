@@ -4,6 +4,7 @@ const results = document.getElementById('results');
 const auditButton = document.getElementById('auditButton');
 const rerunButton = document.getElementById('rerunButton');
 const claimInput = document.getElementById('claim');
+const claimTemplate = document.getElementById('claimTemplate');
 const stages = [...document.querySelectorAll('.stages li')];
 const repoButton = document.getElementById('repoButton');
 const repoPicker = document.getElementById('repoPicker');
@@ -28,6 +29,7 @@ const historyList = document.getElementById('historyList');
 const copyPrompt = document.getElementById('copyPrompt');
 const exportEvidence = document.getElementById('exportEvidence');
 const runClaim = document.getElementById('runClaim');
+const gitContext = document.getElementById('gitContext');
 
 let source = { type: 'demo', files: [] };
 let lastAudit = null;
@@ -85,6 +87,11 @@ function renderAudit(audit) {
   whyCopy.textContent = audit.why;
   renderCards(audit);
   renderTrace(audit.trace);
+  if (audit.git) {
+    const comparison = audit.comparison ? ` · compared with ${audit.comparison.baselineCommit || 'previous local audit'}: +${audit.comparison.newEvidence.length} / -${audit.comparison.removedEvidence.length} citations` : '';
+    gitContext.innerHTML = `<strong>Git context</strong> ${escapeHtml(audit.git.branch)} @ ${escapeHtml(audit.git.commit)} · ${audit.git.dirty ? 'working tree has changes' : 'working tree clean'}${escapeHtml(comparison)}`;
+    gitContext.hidden = false;
+  } else gitContext.hidden = true;
   lastAudit = { claim, source, audit };
 }
 
@@ -118,7 +125,7 @@ async function inspectLocalFiles(files) {
 }
 
 async function auditServerRepository() {
-  const response = await fetch('/api/audit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ repoPath: source.path, claim: claimInput.value.trim() }) });
+  const response = await fetch('/api/audit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ repoPath: source.path, claim: claimInput.value.trim(), template: claimTemplate.value }) });
   const payload = await response.json();
   if (!response.ok) throw new Error(payload.error || 'The local repository audit could not be completed.');
   return payload;
@@ -206,6 +213,10 @@ folderInput.addEventListener('change', () => {
   closePicker();
 });
 document.addEventListener('click', (event) => { if (!event.target.closest('.field-group')) closePicker(); });
+claimTemplate.addEventListener('change', () => {
+  const claims = { 'ai-search': 'Study groups can search shared notes semantically with AI.', 'secure-export': 'Teams can export reports securely.', generic: '' };
+  if (claims[claimTemplate.value]) claimInput.value = claims[claimTemplate.value];
+});
 auditButton.addEventListener('click', runAudit);
 rerunButton.addEventListener('click', () => { results.hidden = true; intake.hidden = false; intake.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
 copyPrompt.addEventListener('click', async () => {
