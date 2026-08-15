@@ -7,6 +7,7 @@ import { promisify } from 'node:util';
 import { auditRepository } from './audit-engine.mjs';
 
 const port = Number(process.env.PORT || 4173);
+if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be a valid TCP port number.');
 const root = fileURLToPath(new URL('.', import.meta.url));
 const dataDirectory = join(root, '.local-data');
 const historyFile = join(dataDirectory, 'audit-history.json');
@@ -198,7 +199,8 @@ function sendJson(res, status, value) {
   res.end(JSON.stringify(value));
 }
 
-createServer(async (req, res) => {
+const server = createServer(async (req, res) => {
+  if (req.method === 'GET' && req.url === '/api/health') return sendJson(res, 200, { service: 'mvp-reality-check', status: 'ready', port });
   if (req.method === 'GET' && req.url === '/api/history') return sendJson(res, 200, await readStore(historyFile));
   if (req.method === 'GET' && req.url === '/api/reviews') return sendJson(res, 200, await readStore(reviewsFile));
   if (req.method === 'GET' && req.url === '/api/docker-status') return sendJson(res, 200, await dockerStatus());
@@ -255,4 +257,11 @@ createServer(async (req, res) => {
   if (!file.startsWith(normalize(root))) { res.writeHead(403); res.end('Forbidden'); return; }
   try { res.writeHead(200, { 'Content-Type': types[extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-store' }); res.end(await readFile(file)); }
   catch { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); res.end('Not found'); }
-}).listen(port, '127.0.0.1', () => console.log(`MVP Reality Check is running at http://localhost:${port}`));
+});
+
+server.on('error', (error) => {
+  console.error(`Could not start MVP Reality Check on http://localhost:${port}: ${error.message}`);
+  process.exitCode = 1;
+});
+
+server.listen(port, '127.0.0.1', () => console.log(`MVP Reality Check is running at http://localhost:${port}`));

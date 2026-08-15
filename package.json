@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "node server.mjs",
-    "start": "node server.mjs"
+    "start": "node server.mjs",
+    "demo": "node scripts/demo-launcher.mjs --open",
+    "demo:status": "node scripts/demo-launcher.mjs --status",
+    "demo:stop": "node scripts/demo-launcher.mjs --stop"
   }
 }

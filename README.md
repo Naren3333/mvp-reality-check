@@ -7,10 +7,12 @@ Dependency-free local prototype for the interview presentation.
 From this folder, either double-click `start-demo.cmd` in File Explorer, or run:
 
 ```powershell
-npm run dev
+npm run demo
 ```
 
-Open [http://localhost:4173](http://localhost:4173).
+The browser opens automatically. It normally uses [http://localhost:4173](http://localhost:4173); if another local program already uses that port, the launcher chooses a free port and opens the correct address itself.
+
+`npm run demo` starts a detached local server, waits for its health check, and opens the browser. It is independent of the terminal that launched it; use `npm run demo:status` to confirm it is running, and `npm run demo:stop` to stop that specific local server. Its log and PID record are stored in `.local-data/`.
 
 For the two-slide interview companion, open [http://localhost:4173/slides.html](http://localhost:4173/slides.html) in a second window next to the prototype. Use the arrow keys or Space to advance, or press `F` for presentation mode.
 
