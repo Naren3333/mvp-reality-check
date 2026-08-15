@@ -4,17 +4,17 @@ Dependency-free local prototype for the interview presentation.
 
 ## Run the demo
 
-From this folder:
+From this folder, either double-click `start-demo.cmd` in File Explorer, or run:
 
 ```powershell
-node server.mjs
+npm run dev
 ```
 
 Open [http://localhost:4173](http://localhost:4173).
 
 For the two-slide interview companion, open [http://localhost:4173/slides.html](http://localhost:4173/slides.html) in a second window next to the prototype. Use the arrow keys or Space to advance, or press `F` for presentation mode.
 
-No installation, API keys, or external services are required. The app starts on the included fixed local mock evidence profile.
+No installation, API keys, or external services are required. The default repository is the local SyncSpace checkout; the included fixed evidence profile remains available as an optional demo fallback.
 
 ## Audit a real local repository
 
