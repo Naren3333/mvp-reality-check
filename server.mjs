@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
+import { cp, mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { basename, extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -11,6 +11,11 @@ const root = fileURLToPath(new URL('.', import.meta.url));
 const dataDirectory = join(root, '.local-data');
 const historyFile = join(dataDirectory, 'audit-history.json');
 const reviewsFile = join(dataDirectory, 'reviews.json');
+const testRunsFile = join(dataDirectory, 'test-runs.json');
+const repositoryCacheDirectory = join(dataDirectory, 'repository-cache');
+const sandboxRunsDirectory = join(dataDirectory, 'sandbox-runs');
+const npmCacheDirectory = join(dataDirectory, 'npm-cache');
+const activeSandboxRepositories = new Set();
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
 const execFileAsync = promisify(execFile);
 
@@ -30,6 +35,40 @@ async function writeStore(file, value) {
 }
 
 function gitArgs(repoPath, args) { return ['-c', `safe.directory=${repoPath}`, '-C', repoPath, ...args]; }
+
+function parsePublicGitHubUrl(value) {
+  try {
+    const url = new URL(value.trim());
+    const match = url.hostname === 'github.com' && url.protocol === 'https:' && url.pathname.match(/^\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?\/?$/);
+    return match ? { url: `https://github.com/${match[1]}/${match[2]}.git`, owner: match[1], repository: match[2] } : null;
+  } catch { return null; }
+}
+
+async function clearPreviousGitHubClone() {
+  await mkdir(repositoryCacheDirectory, { recursive: true });
+  const cacheRoot = resolve(repositoryCacheDirectory);
+  for (const entry of await readdir(repositoryCacheDirectory, { withFileTypes: true })) {
+    if (!entry.isDirectory() || !entry.name.startsWith('github-')) continue;
+    const target = resolve(repositoryCacheDirectory, entry.name);
+    if (!target.startsWith(`${cacheRoot}${sep}`)) throw new Error('Refusing to clear a repository outside the managed cache.');
+    if (activeSandboxRepositories.has(target)) throw new Error('Wait for the active sandbox run to finish before cloning another public repository.');
+    await rm(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 600 });
+  }
+}
+
+async function clonePublicGitHubRepository(value) {
+  const parsed = parsePublicGitHubUrl(value);
+  if (!parsed) throw new Error('Enter a public HTTPS GitHub repository URL such as https://github.com/owner/repository.');
+  await clearPreviousGitHubClone();
+  const destination = await mkdtemp(join(repositoryCacheDirectory, 'github-'));
+  try {
+    await execFileAsync('git', ['-c', 'protocol.file.allow=never', 'clone', '--depth', '1', '--no-tags', parsed.url, destination], { timeout: 120_000, maxBuffer: 2_000_000 });
+    return { ...parsed, path: destination };
+  } catch (error) {
+    await rm(destination, { recursive: true, force: true });
+    throw new Error(`Could not clone the public GitHub repository: ${error instanceof Error ? error.message : 'unknown Git error'}`);
+  }
+}
 
 async function gitContext(repoPath) {
   try {
@@ -79,10 +118,79 @@ async function discoverTests(repoPath) {
   for (const manifest of manifests) {
     try {
       const pkg = JSON.parse(await readFile(join(repoPath, manifest), 'utf8'));
-      for (const [name, script] of Object.entries(pkg.scripts || {})) if (/test|e2e|check/i.test(name)) commands.push({ manifest, command: `npm run ${name}`, script });
+      for (const [name, script] of Object.entries(pkg.scripts || {})) if (/test|e2e|lint|typecheck|check|build/i.test(name)) commands.push({ manifest, command: `npm run ${name}`, script });
     } catch { /* No supported manifest at this location. */ }
   }
   return { commands, note: 'Test commands are discovered only. This read-only auditor does not execute repository code.' };
+}
+
+async function dockerStatus() {
+  try {
+    const result = await execFileAsync('docker', ['version', '--format', '{{.Server.Version}}'], { timeout: 8_000, maxBuffer: 10_000 });
+    return { available: true, version: result.stdout.trim() };
+  } catch { return { available: false, version: null, note: 'Docker Desktop is not running or its engine is unavailable.' }; }
+}
+
+function sandboxFilter(source) {
+  return !new Set(['.git', 'node_modules', 'dist', 'build', 'coverage', '.next', '.turbo']).has(basename(source));
+}
+
+function trimLog(value) {
+  const text = String(value || '').trim();
+  return text.length > 18_000 ? `${text.slice(0, 18_000)}\n… output truncated …` : text;
+}
+
+async function dockerCommand(args, timeout = 180_000) {
+  try {
+    const result = await execFileAsync('docker', args, { timeout, maxBuffer: 20_000_000 });
+    return { ok: true, exitCode: 0, log: trimLog(`${result.stdout}\n${result.stderr}`) };
+  } catch (error) {
+    const detail = error instanceof Error ? error : new Error('Docker command failed.');
+    const timeoutNote = detail.killed ? '\nSandbox command exceeded its time limit.' : '';
+    return { ok: false, exitCode: typeof detail.code === 'number' ? detail.code : null, log: trimLog(`${detail.stdout || ''}\n${detail.stderr || ''}\n${detail.message || ''}${timeoutNote}`) };
+  }
+}
+
+function containerArgs(workspace, command, network) {
+  return ['run', '--rm', '--network', network ? 'bridge' : 'none', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--pids-limit', '256', '--memory', '1g', '--cpus', '1', '--mount', `type=bind,src=${workspace},dst=/workspace`, '--mount', `type=bind,src=${npmCacheDirectory},dst=/npm-cache`, '-w', '/workspace', 'node:22-bookworm-slim', 'sh', '-lc', command];
+}
+
+async function runSandboxTest(repoPath, command, allowSetupNetwork) {
+  const docker = await dockerStatus();
+  if (!docker.available) return { status: 'unavailable', docker, command, setup: null, test: null, boundary: 'No code was executed because Docker is unavailable.' };
+  const discovered = await discoverTests(repoPath);
+  if (!discovered.commands.some((item) => item.command === command)) throw new Error('Choose a discovered test or check command. Arbitrary shell commands are not accepted.');
+  await stat(repoPath);
+  const resolvedRepositoryPath = resolve(repoPath);
+  await Promise.all([mkdir(sandboxRunsDirectory, { recursive: true }), mkdir(npmCacheDirectory, { recursive: true })]);
+  const runDirectory = await mkdtemp(join(sandboxRunsDirectory, 'run-'));
+  const workspace = join(runDirectory, 'workspace');
+  const startedAt = new Date().toISOString();
+  activeSandboxRepositories.add(resolvedRepositoryPath);
+  try {
+    await cp(repoPath, workspace, { recursive: true, filter: sandboxFilter });
+    const hasLockFile = await stat(join(workspace, 'package-lock.json')).then(() => true).catch(() => false);
+    let setup = { status: 'skipped', log: 'Dependency setup was not requested. The test will run with only repository files in the disposable workspace.' };
+    if (allowSetupNetwork) {
+      if (!hasLockFile) return { status: 'setup-required', docker, command, startedAt, setup: { status: 'blocked', log: 'Networked dependency setup is supported only for repositories with package-lock.json.' }, test: null, boundary: 'No test was executed. A lock file is required for reproducible dependency setup.' };
+      const setupResult = await dockerCommand(containerArgs(workspace, 'npm ci --ignore-scripts --no-audit --no-fund --cache /npm-cache', true), 240_000);
+      setup = { status: setupResult.ok ? 'passed' : 'failed', log: setupResult.log, exitCode: setupResult.exitCode, network: 'enabled only for npm ci --ignore-scripts' };
+      if (!setupResult.ok) return { status: 'setup-failed', docker, command, startedAt, setup, test: null, boundary: 'No test was executed because dependency setup failed in the disposable sandbox.' };
+    }
+    const testResult = await dockerCommand(containerArgs(workspace, command, false), 180_000);
+    return { status: testResult.ok ? 'passed' : 'failed', docker, command, startedAt, finishedAt: new Date().toISOString(), setup, test: { status: testResult.ok ? 'passed' : 'failed', exitCode: testResult.exitCode, log: testResult.log, network: 'disabled' }, boundary: 'This records one command in an isolated disposable workspace. It does not prove production behaviour, security, or complete test coverage.' };
+  } finally {
+    await rm(runDirectory, { recursive: true, force: true, maxRetries: 5, retryDelay: 600 }).catch(() => {});
+    activeSandboxRepositories.delete(resolvedRepositoryPath);
+  }
+}
+
+async function saveTestRun(result, repoName, claim, auditId) {
+  const runs = await readStore(testRunsFile);
+  const entry = { id: crypto.randomUUID(), createdAt: new Date().toISOString(), repoName, claim, auditId, status: result.status, command: result.command, setupStatus: result.setup?.status || null, testStatus: result.test?.status || null, exitCode: result.test?.exitCode ?? null, dockerVersion: result.docker?.version || null, boundary: result.boundary };
+  runs.unshift(entry);
+  await writeStore(testRunsFile, runs.slice(0, 100));
+  return entry;
 }
 
 function sendJson(res, status, value) {
@@ -93,6 +201,23 @@ function sendJson(res, status, value) {
 createServer(async (req, res) => {
   if (req.method === 'GET' && req.url === '/api/history') return sendJson(res, 200, await readStore(historyFile));
   if (req.method === 'GET' && req.url === '/api/reviews') return sendJson(res, 200, await readStore(reviewsFile));
+  if (req.method === 'GET' && req.url === '/api/docker-status') return sendJson(res, 200, await dockerStatus());
+  if (req.method === 'GET' && req.url === '/api/test-runs') return sendJson(res, 200, await readStore(testRunsFile));
+  if (req.method === 'POST' && req.url === '/api/github-audit') {
+    try {
+      const { url, claim, template = 'generic', rules = null, documents = [] } = await readJson(req);
+      if (typeof url !== 'string' || typeof claim !== 'string' || !claim.trim()) throw new Error('A public GitHub URL and claim are required.');
+      const cloned = await clonePublicGitHubRepository(url);
+      const audit = await auditRepository(cloned.path, claim.trim(), template, rules);
+      audit.repoName = cloned.repository;
+      audit.template = template;
+      audit.git = await gitContext(audit.repositoryPath);
+      audit.testDiscovery = await discoverTests(audit.repositoryPath);
+      audit.remote = { provider: 'GitHub', url: `https://github.com/${cloned.owner}/${cloned.repository}`, clone: 'shallow public clone stored locally for this review' };
+      await saveAudit(audit, claim.trim(), normalizeDocuments(documents));
+      return sendJson(res, 200, audit);
+    } catch (error) { return sendJson(res, 400, { error: error instanceof Error ? error.message : 'The public GitHub audit could not be completed.' }); }
+  }
   if (req.method === 'POST' && req.url === '/api/audit') {
     try {
       const { repoPath, claim, template = 'generic', rules = null, documents = [] } = await readJson(req);
@@ -115,6 +240,15 @@ createServer(async (req, res) => {
       await writeStore(reviewsFile, reviews.slice(0, 100));
       return sendJson(res, 201, entry);
     } catch (error) { return sendJson(res, 400, { error: error instanceof Error ? error.message : 'The reviewer decision could not be saved.' }); }
+  }
+  if (req.method === 'POST' && req.url === '/api/test-run') {
+    try {
+      const { repoPath, command, allowSetupNetwork = false, claim = '', auditId = '', repoName = '' } = await readJson(req);
+      if (typeof repoPath !== 'string' || !repoPath || typeof command !== 'string' || !command) throw new Error('Repository path and a discovered test command are required.');
+      const result = await runSandboxTest(repoPath, command, Boolean(allowSetupNetwork));
+      const run = await saveTestRun(result, String(repoName || basename(repoPath)).slice(0, 140), String(claim).slice(0, 500), String(auditId));
+      return sendJson(res, 200, { ...result, run });
+    } catch (error) { return sendJson(res, 400, { error: error instanceof Error ? error.message : 'The sandbox test could not be completed.' }); }
   }
   const requested = req.url === '/' ? 'index.html' : req.url.split('?')[0].replace(/^\//, '');
   const file = normalize(join(root, requested));
