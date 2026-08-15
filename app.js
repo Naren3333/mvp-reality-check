@@ -1,5 +1,5 @@
 const byId = (id) => document.getElementById(id);
-const intake = byId('intake'); const progress = byId('progress'); const results = byId('results');
+const intake = byId('intake'); const progress = byId('progress'); const results = byId('results'); const progressFoot = byId('progressFoot');
 const auditButton = byId('auditButton'); const rerunButton = byId('rerunButton'); const claimInput = byId('claim'); const claimTemplate = byId('claimTemplate');
 const stages = [...document.querySelectorAll('.stages li')]; const repoButton = byId('repoButton'); const repoPicker = byId('repoPicker'); const useDemo = byId('useDemo'); const chooseFolder = byId('chooseFolder'); const choosePath = byId('choosePath'); const chooseGitHub = byId('chooseGitHub'); const folderInput = byId('folderInput'); const pathEntry = byId('pathEntry'); const githubEntry = byId('githubEntry'); const repoPathInput = byId('repoPathInput'); const githubUrlInput = byId('githubUrlInput'); const usePath = byId('usePath'); const useGitHub = byId('useGitHub'); const repoName = byId('repoName'); const repoMeta = byId('repoMeta');
 const documentInput = byId('documentInput'); const documentList = byId('documentList'); const documentHint = byId('documentHint');
@@ -146,7 +146,40 @@ async function auditGitHubRepository() { const rules = JSON.parse(localStorage.g
 async function prepareAudit() { if (source.type === 'demo') return { ...demoAudit, documentEvidence: supplementaryDocuments.map((item) => ({ name: item.name, kind: 'reviewer-supplied document', excerpt: item.text.replace(/\s+/g, ' ').slice(0, 300) })) }; if (source.type === 'server') return auditServerRepository(); if (source.type === 'github') return auditGitHubRepository(); return inspectLocalFiles(source.files); }
 function failedAudit(message) { return { repoName: repoName.textContent, evidence: [], gaps: [{ title: 'Audit could not complete', detail: message, nextStep: 'Check the local repository path and retry.' }], verdict: 'Requires runtime / human verification', boundary: 'No source conclusion should be drawn until the repository path and scan can be reviewed.', why: 'The local audit did not complete. The tool intentionally does not substitute demo evidence or invent a result.', trace: [message], requirements: [{ id: 'audit-failed', label: 'Source audit completed', kind: 'source', status: 'gap', detail: message, nextStep: 'Correct the local audit error and retry.' }], runtimePlan: [{ title: 'Resolve the audit error', action: 'Check the local repository path and server status, then re-run the audit.', capture: 'A completed source audit.' }] }; }
 
-async function runAudit() { intake.hidden = true; results.hidden = true; progress.hidden = false; resetStages(); window.scrollTo({ top: 0, behavior: 'smooth' }); let audit; try { audit = await prepareAudit(); } catch (error) { audit = failedAudit(error instanceof Error ? error.message : 'The local source check failed.'); } renderAudit(audit); stages.forEach((stage, index) => window.setTimeout(() => { if (index > 0) stages[index - 1].classList.replace('active', 'done'); stage.classList.add('active'); }, index * 500)); window.setTimeout(async () => { stages.at(-1).classList.replace('active', 'done'); progress.hidden = true; results.hidden = false; results.scrollIntoView({ behavior: 'smooth', block: 'start' }); if (source.type === 'server') { await loadHistory(); await loadReviewQueue(); } }, stages.length * 500 + 220); }
+async function runAudit() {
+  const isPublicClone = source.type === 'github';
+  intake.hidden = true;
+  results.hidden = true;
+  progress.hidden = false;
+  resetStages();
+  stages[0].classList.add('active');
+  progressFoot.innerHTML = `<span class="pulse"></span>${isPublicClone ? 'Cloning the public repository locally before deterministic checks' : 'Inspecting local evidence only'}`;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  let audit;
+  try {
+    audit = await prepareAudit();
+  } catch (error) {
+    audit = failedAudit(error instanceof Error ? error.message : 'The local source check failed.');
+  }
+
+  renderAudit(audit);
+  stages.slice(1).forEach((stage, index) => window.setTimeout(() => {
+    stages[index].classList.replace('active', 'done');
+    stage.classList.add('active');
+  }, (index + 1) * 500));
+
+  window.setTimeout(async () => {
+    stages.at(-1).classList.replace('active', 'done');
+    progress.hidden = true;
+    results.hidden = false;
+    results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (source.type === 'server') {
+      await loadHistory();
+      await loadReviewQueue();
+    }
+  }, stages.length * 500 + 220);
+}
 
 function closePicker() { repoPicker.hidden = true; repoButton.setAttribute('aria-expanded', 'false'); pathEntry.hidden = true; githubEntry.hidden = true; }
 function renderSelectedDocuments() { if (!supplementaryDocuments.length) { documentList.hidden = true; documentHint.textContent = 'Attach a PR description, architecture note, or test report. These are labelled as reviewer-supplied context, never source proof.'; return; } documentList.hidden = false; documentHint.textContent = `${supplementaryDocuments.length} local document(s) will be included as supplementary context.`; documentList.innerHTML = supplementaryDocuments.map((item) => `<li><span>${escapeHtml(item.name)}</span><button type="button" data-remove-document="${escapeHtml(item.name)}">Remove</button></li>`).join(''); }
