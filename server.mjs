@@ -47,6 +47,15 @@ async function saveAudit(audit, claim) {
   await writeFile(historyFile, JSON.stringify(history.slice(0, 50), null, 2));
 }
 
+async function discoverTests(repoPath) {
+  const manifests = ['package.json', 'apps/web/package.json', 'apps/collaboration/package.json'];
+  const commands = [];
+  for (const manifest of manifests) {
+    try { const pkg = JSON.parse(await readFile(join(repoPath, manifest), 'utf8')); if (pkg.scripts?.test) commands.push({ manifest, command: 'npm test', script: pkg.scripts.test }); } catch { /* No supported manifest. */ }
+  }
+  return { commands, note: 'Test commands are discovered only. This read-only auditor does not execute repository code.' };
+}
+
 createServer(async (req, res) => {
   if (req.method === 'GET' && req.url === '/api/history') {
     const history = await getHistory();
@@ -56,11 +65,12 @@ createServer(async (req, res) => {
   }
   if (req.method === 'POST' && req.url === '/api/audit') {
     try {
-      const { repoPath, claim, template = 'generic' } = await readJson(req);
+      const { repoPath, claim, template = 'generic', rules = null } = await readJson(req);
       if (typeof repoPath !== 'string' || !repoPath.trim() || typeof claim !== 'string' || !claim.trim()) throw new Error('A local repository path and claim are required.');
-      const audit = await auditRepository(repoPath.trim(), claim.trim(), template);
+      const audit = await auditRepository(repoPath.trim(), claim.trim(), template, rules);
       audit.template = template;
       audit.git = await gitContext(audit.repositoryPath);
+      audit.testDiscovery = await discoverTests(audit.repositoryPath);
       await saveAudit(audit, claim.trim());
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
       res.end(JSON.stringify(audit));

@@ -38,6 +38,7 @@
             <option value="secure-export">Secure export</option>
             <option value="generic">General capability</option>
           </select>
+          <button id="editRules" class="rules-button" type="button">Edit rules</button>
         </div>
         <div class="field-group">
           <span class="field-label">Repository</span>
@@ -63,6 +64,7 @@
           <span>Audit claim</span><span class="arrow" aria-hidden="true">→</span>
         </button>
         <p class="intake-note">Source review only. This audit does not verify runtime behavior or make a security determination.</p>
+        <section id="rulesPanel" class="rules-panel" hidden><div><strong>Evidence rules</strong><span>Regular expressions are matched locally against file paths and source text.</span></div><textarea id="rulesInput" spellcheck="false"></textarea><button id="saveRules" class="quiet-button" type="button">Save rules</button><p id="rulesStatus"></p></section>
       </section>
 
       <section id="progress" class="progress-view" aria-live="polite" hidden>
@@ -97,6 +99,7 @@
           <p id="boundaryText" class="boundary"><span>Boundary</span>Do not present it as secure without runtime and human verification.</p>
         </div>
         <p id="gitContext" class="git-context" hidden></p>
+        <section id="comparisonPanel" class="comparison" hidden><p class="section-kicker">Git comparison</p><p id="comparisonText"></p></section>
 
         <div class="evidence-layout">
           <section class="evidence-section" aria-labelledby="evidence-title">
@@ -155,12 +158,14 @@
         </section>
         <section id="codexHandoff" class="codex-handoff" aria-label="Optional AI explanation step">
           <div><p class="section-kicker">Optional AI step</p><h3>Prepare a bounded review pack</h3><p>Export cited evidence and gaps for a reviewer to use with Codex. The AI can explain relevance; it does not determine the verdict.</p></div>
-          <div class="handoff-actions"><button id="copyPrompt" class="quiet-button" type="button">Copy Codex review prompt</button><button id="exportEvidence" class="quiet-button" type="button">Export evidence pack</button></div>
+          <div class="handoff-actions"><button id="copyPrompt" class="quiet-button" type="button">Copy Codex review prompt</button><button id="exportEvidence" class="quiet-button" type="button">Export evidence pack</button><button id="exportMarkdown" class="quiet-button" type="button">Export review report</button></div>
         </section>
+        <section class="reviewer" aria-label="Human review decision"><div><p class="section-kicker">Human decision</p><h3>Close the audit</h3></div><select id="reviewDecision"><option value="">Choose a decision</option><option>Claim must be rewritten</option><option>Needs runtime verification</option><option>Accepted with evidence boundary</option><option>False positive — dismiss</option></select><textarea id="reviewNotes" placeholder="Reviewer rationale (saved locally)"></textarea><button id="saveReview" class="quiet-button" type="button">Save decision</button><p id="reviewStatus"></p></section>
         <section id="history" class="history" hidden aria-labelledby="historyTitle">
           <div><p class="section-kicker">Local history</p><h3 id="historyTitle">Recent audits</h3></div>
           <ol id="historyList"></ol>
         </section>
+        <section id="testDiscovery" class="test-discovery" hidden><p class="section-kicker">Test discovery</p><h3>Relevant repository test commands</h3><ul id="testCommands"></ul><p id="testNote"></p></section>
       </section>
       <footer><span>Evidence is cited. Judgment stays human.</span><span>Local demo · no repository data leaves this device</span></footer>
     </main>

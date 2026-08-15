@@ -28,8 +28,15 @@ const history = document.getElementById('history');
 const historyList = document.getElementById('historyList');
 const copyPrompt = document.getElementById('copyPrompt');
 const exportEvidence = document.getElementById('exportEvidence');
+const exportMarkdown = document.getElementById('exportMarkdown');
+const reviewDecision = document.getElementById('reviewDecision');
+const reviewNotes = document.getElementById('reviewNotes');
+const saveReview = document.getElementById('saveReview');
+const reviewStatus = document.getElementById('reviewStatus');
 const runClaim = document.getElementById('runClaim');
 const gitContext = document.getElementById('gitContext');
+const comparisonPanel = document.getElementById('comparisonPanel'); const comparisonText = document.getElementById('comparisonText'); const testDiscovery = document.getElementById('testDiscovery'); const testCommands = document.getElementById('testCommands'); const testNote = document.getElementById('testNote');
+const editRules = document.getElementById('editRules'); const rulesPanel = document.getElementById('rulesPanel'); const rulesInput = document.getElementById('rulesInput'); const saveRules = document.getElementById('saveRules'); const rulesStatus = document.getElementById('rulesStatus');
 
 let source = { type: 'demo', files: [] };
 let lastAudit = null;
@@ -92,7 +99,11 @@ function renderAudit(audit) {
     gitContext.innerHTML = `<strong>Git context</strong> ${escapeHtml(audit.git.branch)} @ ${escapeHtml(audit.git.commit)} · ${audit.git.dirty ? 'working tree has changes' : 'working tree clean'}${escapeHtml(comparison)}`;
     gitContext.hidden = false;
   } else gitContext.hidden = true;
+  if (audit.comparison) { comparisonText.textContent = `Compared with ${audit.comparison.baselineCommit || 'the previous saved audit'}: ${audit.comparison.newEvidence.length} citation(s) added, ${audit.comparison.removedEvidence.length} removed; prior verdict was ${audit.comparison.previousVerdict}.`; comparisonPanel.hidden = false; } else comparisonPanel.hidden = true;
+  if (audit.testDiscovery) { testCommands.innerHTML = audit.testDiscovery.commands.map((item) => `<li>${escapeHtml(item.manifest)} — ${escapeHtml(item.command)} (${escapeHtml(item.script)})</li>`).join('') || '<li>No npm test script discovered.</li>'; testNote.textContent = audit.testDiscovery.note; testDiscovery.hidden = false; } else testDiscovery.hidden = true;
   lastAudit = { claim, source, audit };
+  const saved = localStorage.getItem(`mvp-review:${claim}:${audit.repoName}`);
+  if (saved) { const review = JSON.parse(saved); reviewDecision.value = review.decision; reviewNotes.value = review.notes; reviewStatus.textContent = 'Saved local reviewer decision loaded.'; } else { reviewDecision.value = ''; reviewNotes.value = ''; reviewStatus.textContent = ''; }
 }
 
 async function inspectLocalFiles(files) {
@@ -125,7 +136,8 @@ async function inspectLocalFiles(files) {
 }
 
 async function auditServerRepository() {
-  const response = await fetch('/api/audit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ repoPath: source.path, claim: claimInput.value.trim(), template: claimTemplate.value }) });
+  const rules = JSON.parse(localStorage.getItem(`mvp-rules:${claimTemplate.value}`) || 'null');
+  const response = await fetch('/api/audit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ repoPath: source.path, claim: claimInput.value.trim(), template: claimTemplate.value, rules }) });
   const payload = await response.json();
   if (!response.ok) throw new Error(payload.error || 'The local repository audit could not be completed.');
   return payload;
@@ -181,7 +193,7 @@ async function loadHistory() {
 
 function evidencePack() {
   if (!lastAudit) return null;
-  return { claim: lastAudit.claim, repository: lastAudit.audit.repoName, verdict: lastAudit.audit.verdict, boundary: lastAudit.audit.boundary, citedEvidence: lastAudit.audit.evidence, evidenceGaps: lastAudit.audit.gaps, auditTrace: lastAudit.audit.trace, instruction: 'Use only this evidence pack. Explain the relevance of citations and identify questions for a human reviewer. Do not infer missing facts, decide the verdict, or claim production behavior or security.' };
+  return { claim: lastAudit.claim, repository: lastAudit.audit.repoName, git: lastAudit.audit.git || null, verdict: lastAudit.audit.verdict, boundary: lastAudit.audit.boundary, citedEvidence: lastAudit.audit.evidence, evidenceGaps: lastAudit.audit.gaps, auditTrace: lastAudit.audit.trace, instruction: 'Use only this evidence pack. Explain the relevance of citations and identify questions for a human reviewer. Do not infer missing facts, decide the verdict, or claim production behavior or security.' };
 }
 
 repoButton.addEventListener('click', () => {
@@ -217,6 +229,9 @@ claimTemplate.addEventListener('change', () => {
   const claims = { 'ai-search': 'Study groups can search shared notes semantically with AI.', 'secure-export': 'Teams can export reports securely.', generic: '' };
   if (claims[claimTemplate.value]) claimInput.value = claims[claimTemplate.value];
 });
+const defaultRules = { 'ai-search': { checks:[{label:'Workspace search UI',kind:'component',pathPattern:'workspace-organization',contentPattern:'search'},{label:'AI or semantic retrieval integration',kind:'integration',pathPattern:'',contentPattern:'openai|anthropic|\\bllm\\b|embedding'}] }, 'secure-export': { checks:[{label:'Export UI',kind:'component',pathPattern:'components?',contentPattern:'export|report'},{label:'Route authorization',kind:'authorization',pathPattern:'api|route|handler|controller',contentPattern:'authorize|permission|requireRole'}] }, generic:{checks:[]} };
+editRules.addEventListener('click', () => { const value = localStorage.getItem(`mvp-rules:${claimTemplate.value}`); rulesInput.value = value || JSON.stringify(defaultRules[claimTemplate.value], null, 2); rulesPanel.hidden = !rulesPanel.hidden; });
+saveRules.addEventListener('click', () => { try { const parsed = JSON.parse(rulesInput.value); if (!Array.isArray(parsed.checks)) throw new Error(); localStorage.setItem(`mvp-rules:${claimTemplate.value}`, JSON.stringify(parsed)); rulesStatus.textContent = 'Rules saved locally and will drive the next local-path audit.'; } catch { rulesStatus.textContent = 'Use valid JSON with a checks array.'; } });
 auditButton.addEventListener('click', runAudit);
 rerunButton.addEventListener('click', () => { results.hidden = true; intake.hidden = false; intake.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
 copyPrompt.addEventListener('click', async () => {
@@ -238,4 +253,11 @@ exportEvidence.addEventListener('click', () => {
   link.click();
   URL.revokeObjectURL(url);
 });
+exportMarkdown.addEventListener('click', () => {
+  const pack = evidencePack(); if (!pack) return;
+  const review = { decision: reviewDecision.value || 'Not recorded', notes: reviewNotes.value || 'None' };
+  const markdown = `# MVP Reality Check review\n\n## Claim\n${pack.claim}\n\n## Verdict\n${pack.verdict}\n\n## Git\n${pack.git?.branch || 'Not recorded'} @ ${pack.git?.commit || 'Not recorded'}\n\n## Evidence\n${pack.citedEvidence.map((item) => `- ${item.citation}: ${item.title}`).join('\n') || '- None'}\n\n## Gaps\n${pack.evidenceGaps.map((item) => `- ${item.title}`).join('\n')}\n\n## Human decision\n${review.decision}\n\n${review.notes}\n\n## Boundary\n${pack.boundary}\n`;
+  const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([markdown], { type: 'text/markdown' })); link.download = 'mvp-reality-check-review.md'; link.click(); URL.revokeObjectURL(link.href);
+});
+saveReview.addEventListener('click', () => { if (!lastAudit || !reviewDecision.value) { reviewStatus.textContent = 'Choose a decision before saving.'; return; } localStorage.setItem(`mvp-review:${lastAudit.claim}:${lastAudit.audit.repoName}`, JSON.stringify({ decision: reviewDecision.value, notes: reviewNotes.value, savedAt: new Date().toISOString() })); reviewStatus.textContent = 'Decision saved locally.'; });
 loadHistory();

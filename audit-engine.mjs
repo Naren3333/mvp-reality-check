@@ -50,7 +50,26 @@ function makeGap(title, detail) {
   return { title, detail };
 }
 
-export async function auditRepository(repoPath, claim, template = 'generic') {
+function compilePattern(value) {
+  try { return value ? new RegExp(value, 'i') : null; } catch { return null; }
+}
+
+function auditWithRules(root, source, claim, template, rules) {
+  const checks = Array.isArray(rules?.checks) ? rules.checks.slice(0, 8) : [];
+  const evidence = [];
+  const gaps = [];
+  for (const check of checks) {
+    const pathPattern = compilePattern(check.pathPattern);
+    const contentPattern = compilePattern(check.contentPattern);
+    const match = source.find(({ file, text }) => (!pathPattern || pathPattern.test(file)) && (!contentPattern || contentPattern.test(text)));
+    if (match) evidence.push({ citation: citation(root, match.file, match.text, contentPattern || pathPattern), title: check.label || 'Configured evidence signal found', detail: 'Matched using a reviewer-configured deterministic evidence rule.', tag: check.kind || 'rule' });
+    else gaps.push(makeGap(`Missing: ${check.label || 'configured evidence signal'}`, 'No source file matched this reviewer-configured deterministic rule.'));
+  }
+  const verdict = evidence.length === checks.length && checks.length ? 'Evidenced in source' : evidence.length ? 'Partially evidenced' : 'No supporting evidence found';
+  return { repoName: root.split(sep).filter(Boolean).at(-1) || root, repositoryPath: root, template, scannedFiles: source.length, evidence, gaps, verdict, boundary: 'Configured source rules do not establish runtime behavior, security, or suitability without human verification.', why: `This audit used ${checks.length} reviewer-configured deterministic evidence rules for the claim.`, trace: [`Read ${source.length} supported source files from the selected local repository.`, `Applied ${checks.length} reviewer-configured evidence rules.`, ...evidence.map((item) => `Cited ${item.citation} for ${item.title}.`), ...gaps.map((item) => item.title)] };
+}
+
+export async function auditRepository(repoPath, claim, template = 'generic', rules = null) {
   const root = await realpath(repoPath);
   const allFiles = await walk(root);
   const source = [];
@@ -60,6 +79,7 @@ export async function auditRepository(repoPath, claim, template = 'generic') {
       if (Buffer.byteLength(text, 'utf8') <= maxBytes) source.push({ file, text });
     } catch { /* Skip unreadable or non-text files. */ }
   }
+  if (rules?.checks?.length) return auditWithRules(root, source, claim, template, rules);
 
   const signals = claimSignals(claim);
   const aiSearchClaim = template === 'ai-search' || (template === 'generic' && /(?:\bai\b|ai-powered|semantic|embedding|\bllm\b)/i.test(claim) && /search/i.test(claim));
