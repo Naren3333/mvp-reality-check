@@ -32,6 +32,20 @@ The local server recursively reads supported source files (JavaScript/TypeScript
 - The app discovers declared `npm test` scripts but deliberately does **not** execute repository code; that keeps the prototype read-only and safe to run against an unfamiliar checkout.
 - A reviewer can record a final decision and rationale in the browser, then export a Markdown hand-off report or JSON evidence pack.
 
+## No-key workflow included
+
+The local-path audit adds the following working features:
+
+- **Claim decomposition:** each claim becomes explicit source requirements, with a cited/gap/human-review status.
+- **Evidence graph and citation explorer:** inspect the relationship from claim to requirement to exact source citation, including a short local line excerpt.
+- **Candidate code-path trace:** a clearly labelled citation sequence for review. It is not presented as a verified runtime call graph.
+- **Git-aware audit history:** compare the current audit with the previous saved audit for the same repository/template, including changed tracked file names when Git can calculate a diff.
+- **Supplementary documents:** attach small `.md`, `.txt`, `.json`, `.yaml`, or `.yml` review documents. They remain local and are explicitly separated from source evidence.
+- **Manual runtime plan:** generate a template-specific safe test plan. The tool never runs repository code or probes a live system.
+- **Reviewer queue:** save a decision, owner, state, due date, and rationale to `.local-data/reviews.json`.
+
+The audit does not prove production behaviour, security, privacy, investment readiness, or test coverage. It reports bounded source signals and preserves the human decision point.
+
 ## Optional Codex review step
 
 After an audit, the app can copy a constrained Codex review prompt or export an evidence pack. Paste that into your signed-in Codex client to get an explanation of the cited evidence and questions for a reviewer. This is deliberately manual and optional: Codex does not set the verdict, and the demo uses no API key.
