@@ -10,9 +10,7 @@ From this folder, either double-click `start-demo.cmd` in File Explorer, or run:
 npm run demo
 ```
 
-The browser opens automatically. It normally uses [http://localhost:4173](http://localhost:4173); if another local program already uses that port, the launcher chooses a free port and opens the correct address itself.
-
-`npm run demo` starts a detached local server, waits for its health check, and opens the browser. It is independent of the terminal that launched it; use `npm run demo:status` to confirm it is running, and `npm run demo:stop` to stop that specific local server. Its log and PID record are stored in `.local-data/`.
+Open [http://localhost:4176](http://localhost:4176). Keep the terminal window open throughout the demo; it is the local server. Press `Ctrl+C` in that window when you want to stop it. This avoids relying on a hidden background process that Windows or a coding tool may clean up.
 
 For the two-slide interview companion, open [http://localhost:4173/slides.html](http://localhost:4173/slides.html) in a second window next to the prototype. Use the arrow keys or Space to advance, or press `F` for presentation mode.
 
@@ -61,10 +59,14 @@ When Docker Desktop is running, a local-path or public-GitHub audit lists discov
 
 - The project is copied into a disposable workspace; the original project is never mounted into the container.
 - The test phase has no network, no host credentials, no Docker socket, no privileged mode, and CPU/memory/process limits.
-- If needed, the reviewer can explicitly allow one setup phase: `npm ci --ignore-scripts` with network access. A `package-lock.json` is required for this phase.
+- If needed, the reviewer can explicitly allow one setup phase with network access: `npm ci --ignore-scripts` when a `package-lock.json` exists, or `npm install --ignore-scripts` when it does not. The latter is clearly marked as non-reproducible.
 - The tool records the command, outcome, exit code, capped logs, Docker version, and boundary in `.local-data/test-runs.json`.
 
 Sandbox output is bounded execution evidence for one command at one point in time. It does not prove production behaviour, security, or complete test coverage.
+
+## Trusted local execution
+
+For a local repository that the reviewer explicitly trusts, the results page also offers **Run locally**. It can run only a command discovered from that repository's package manifest; arbitrary shell commands and automatic dependency installation are not allowed. Unlike the Docker runner, it runs in the real local package directory and may create generated test or build files. Its output is saved as bounded local execution evidence, not a production guarantee.
 
 The audit does not prove production behaviour, security, privacy, investment readiness, or test coverage. It reports bounded source signals and preserves the human decision point.
 

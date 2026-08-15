@@ -4,10 +4,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "node server.mjs",
-    "start": "node server.mjs",
-    "demo": "node scripts/demo-launcher.mjs --open",
-    "demo:status": "node scripts/demo-launcher.mjs --status",
-    "demo:stop": "node scripts/demo-launcher.mjs --stop"
+    "dev": "set PORT=4176&& node server.mjs",
+    "start": "set PORT=4176&& node server.mjs",
+    "demo": "set PORT=4176&& node server.mjs"
   }
 }

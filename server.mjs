@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { cp, mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
-import { basename, extname, join, normalize, resolve, sep } from 'node:path';
+import { basename, dirname, extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -119,10 +119,15 @@ async function discoverTests(repoPath) {
   for (const manifest of manifests) {
     try {
       const pkg = JSON.parse(await readFile(join(repoPath, manifest), 'utf8'));
-      for (const [name, script] of Object.entries(pkg.scripts || {})) if (/test|e2e|lint|typecheck|check|build/i.test(name)) commands.push({ manifest, command: `npm run ${name}`, script });
+      const packageDirectory = dirname(manifest).replace(/\\/g, '/');
+      for (const [name, script] of Object.entries(pkg.scripts || {})) {
+        if (!/test|e2e|lint|typecheck|check|build/i.test(name)) continue;
+        const command = packageDirectory === '.' ? `npm run ${name}` : `npm --prefix ${packageDirectory} run ${name}`;
+        commands.push({ manifest, packageDirectory, name, command, script });
+      }
     } catch { /* No supported manifest at this location. */ }
   }
-  return { commands, note: 'Test commands are discovered only. This read-only auditor does not execute repository code.' };
+  return { commands, note: 'Commands are discovered from package manifests. Execution requires explicit reviewer selection and uses a disposable Docker workspace.' };
 }
 
 async function dockerStatus() {
@@ -156,11 +161,16 @@ function containerArgs(workspace, command, network) {
   return ['run', '--rm', '--network', network ? 'bridge' : 'none', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--pids-limit', '256', '--memory', '1g', '--cpus', '1', '--mount', `type=bind,src=${workspace},dst=/workspace`, '--mount', `type=bind,src=${npmCacheDirectory},dst=/npm-cache`, '-w', '/workspace', 'node:22-bookworm-slim', 'sh', '-lc', command];
 }
 
+function npmCommand(packageDirectory, action) {
+  return packageDirectory && packageDirectory !== '.' ? `npm --prefix ${packageDirectory} ${action}` : `npm ${action}`;
+}
+
 async function runSandboxTest(repoPath, command, allowSetupNetwork) {
   const docker = await dockerStatus();
   if (!docker.available) return { status: 'unavailable', docker, command, setup: null, test: null, boundary: 'No code was executed because Docker is unavailable.' };
   const discovered = await discoverTests(repoPath);
-  if (!discovered.commands.some((item) => item.command === command)) throw new Error('Choose a discovered test or check command. Arbitrary shell commands are not accepted.');
+  const selectedCommand = discovered.commands.find((item) => item.command === command);
+  if (!selectedCommand) throw new Error('Choose a discovered test or check command. Arbitrary shell commands are not accepted.');
   await stat(repoPath);
   const resolvedRepositoryPath = resolve(repoPath);
   await Promise.all([mkdir(sandboxRunsDirectory, { recursive: true }), mkdir(npmCacheDirectory, { recursive: true })]);
@@ -170,19 +180,45 @@ async function runSandboxTest(repoPath, command, allowSetupNetwork) {
   activeSandboxRepositories.add(resolvedRepositoryPath);
   try {
     await cp(repoPath, workspace, { recursive: true, filter: sandboxFilter });
-    const hasLockFile = await stat(join(workspace, 'package-lock.json')).then(() => true).catch(() => false);
+    const packageDirectory = selectedCommand.packageDirectory || '.';
+    const hasLockFile = await stat(join(workspace, packageDirectory, 'package-lock.json')).then(() => true).catch(() => false);
     let setup = { status: 'skipped', log: 'Dependency setup was not requested. The test will run with only repository files in the disposable workspace.' };
     if (allowSetupNetwork) {
-      if (!hasLockFile) return { status: 'setup-required', docker, command, startedAt, setup: { status: 'blocked', log: 'Networked dependency setup is supported only for repositories with package-lock.json.' }, test: null, boundary: 'No test was executed. A lock file is required for reproducible dependency setup.' };
-      const setupResult = await dockerCommand(containerArgs(workspace, 'npm ci --ignore-scripts --no-audit --no-fund --cache /npm-cache', true), 240_000);
-      setup = { status: setupResult.ok ? 'passed' : 'failed', log: setupResult.log, exitCode: setupResult.exitCode, network: 'enabled only for npm ci --ignore-scripts' };
+      const setupCommand = hasLockFile
+        ? npmCommand(packageDirectory, 'ci --ignore-scripts --no-audit --no-fund --cache /npm-cache')
+        : npmCommand(packageDirectory, 'install --ignore-scripts --no-audit --no-fund --cache /npm-cache');
+      const setupResult = await dockerCommand(containerArgs(workspace, setupCommand, true), 240_000);
+      setup = {
+        status: setupResult.ok ? 'passed' : 'failed', log: setupResult.log, exitCode: setupResult.exitCode,
+        network: hasLockFile ? 'enabled only for npm ci --ignore-scripts' : 'enabled only for npm install --ignore-scripts (no lock file found)',
+        reproducible: hasLockFile
+      };
       if (!setupResult.ok) return { status: 'setup-failed', docker, command, startedAt, setup, test: null, boundary: 'No test was executed because dependency setup failed in the disposable sandbox.' };
     }
     const testResult = await dockerCommand(containerArgs(workspace, command, false), 180_000);
-    return { status: testResult.ok ? 'passed' : 'failed', docker, command, startedAt, finishedAt: new Date().toISOString(), setup, test: { status: testResult.ok ? 'passed' : 'failed', exitCode: testResult.exitCode, log: testResult.log, network: 'disabled' }, boundary: 'This records one command in an isolated disposable workspace. It does not prove production behaviour, security, or complete test coverage.' };
+    const reproducibilityBoundary = allowSetupNetwork && !hasLockFile ? ' Dependency installation used package.json without a lock file, so versions may vary.' : '';
+    return { status: testResult.ok ? 'passed' : 'failed', docker, command, startedAt, finishedAt: new Date().toISOString(), setup, test: { status: testResult.ok ? 'passed' : 'failed', exitCode: testResult.exitCode, log: testResult.log, network: 'disabled' }, boundary: `This records one command in an isolated disposable workspace. It does not prove production behaviour, security, or complete test coverage.${reproducibilityBoundary}` };
   } finally {
     await rm(runDirectory, { recursive: true, force: true, maxRetries: 5, retryDelay: 600 }).catch(() => {});
     activeSandboxRepositories.delete(resolvedRepositoryPath);
+  }
+}
+
+async function runTrustedLocalTest(repoPath, command) {
+  const discovered = await discoverTests(repoPath);
+  const selectedCommand = discovered.commands.find((item) => item.command === command);
+  if (!selectedCommand) throw new Error('Choose a discovered test or check command. Arbitrary shell commands are not accepted.');
+  await stat(repoPath);
+  const args = selectedCommand.packageDirectory && selectedCommand.packageDirectory !== '.'
+    ? ['--prefix', selectedCommand.packageDirectory, 'run', selectedCommand.name]
+    : ['run', selectedCommand.name];
+  const startedAt = new Date().toISOString();
+  try {
+    const result = await execFileAsync(process.platform === 'win32' ? 'npm.cmd' : 'npm', args, { cwd: repoPath, timeout: 180_000, maxBuffer: 20_000_000 });
+    return { status: 'passed', docker: null, command, startedAt, finishedAt: new Date().toISOString(), setup: { status: 'not-run', log: 'No dependency installation was run.' }, test: { status: 'passed', exitCode: 0, log: trimLog(`${result.stdout}\n${result.stderr}`), network: 'not controlled by this local runner' }, boundary: 'This command ran locally in the reviewer-selected repository, not in a disposable sandbox. It may create repository build or test files. It does not prove production behaviour, security, or complete coverage.' };
+  } catch (error) {
+    const detail = error instanceof Error ? error : new Error('Local command failed.');
+    return { status: 'failed', docker: null, command, startedAt, finishedAt: new Date().toISOString(), setup: { status: 'not-run', log: 'No dependency installation was run.' }, test: { status: 'failed', exitCode: typeof detail.code === 'number' ? detail.code : null, log: trimLog(`${detail.stdout || ''}\n${detail.stderr || ''}\n${detail.message || ''}`), network: 'not controlled by this local runner' }, boundary: 'This command ran locally in the reviewer-selected repository, not in a disposable sandbox. It may create repository build or test files. It does not prove production behaviour, security, or complete coverage.' };
   }
 }
 
@@ -252,11 +288,27 @@ const server = createServer(async (req, res) => {
       return sendJson(res, 200, { ...result, run });
     } catch (error) { return sendJson(res, 400, { error: error instanceof Error ? error.message : 'The sandbox test could not be completed.' }); }
   }
+  if (req.method === 'POST' && req.url === '/api/local-test-run') {
+    try {
+      const { repoPath, command, trustedLocal = false, claim = '', auditId = '', repoName = '' } = await readJson(req);
+      if (!trustedLocal) throw new Error('Confirm that you trust this local repository before running a command on your computer.');
+      if (typeof repoPath !== 'string' || !repoPath || typeof command !== 'string' || !command) throw new Error('Repository path and a discovered test command are required.');
+      const result = await runTrustedLocalTest(repoPath, command);
+      const run = await saveTestRun(result, String(repoName || basename(repoPath)).slice(0, 140), String(claim).slice(0, 500), String(auditId));
+      return sendJson(res, 200, { ...result, run });
+    } catch (error) { return sendJson(res, 400, { error: error instanceof Error ? error.message : 'The local test could not be completed.' }); }
+  }
   const requested = req.url === '/' ? 'index.html' : req.url.split('?')[0].replace(/^\//, '');
   const file = normalize(join(root, requested));
   if (!file.startsWith(normalize(root))) { res.writeHead(403); res.end('Forbidden'); return; }
-  try { res.writeHead(200, { 'Content-Type': types[extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-store' }); res.end(await readFile(file)); }
-  catch { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); res.end('Not found'); }
+  try {
+    const content = await readFile(file);
+    res.writeHead(200, { 'Content-Type': types[extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
+    res.end(content);
+  } catch {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Not found');
+  }
 });
 
 server.on('error', (error) => {

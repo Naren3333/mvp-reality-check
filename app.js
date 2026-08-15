@@ -6,6 +6,7 @@ const documentInput = byId('documentInput'); const documentList = byId('document
 const resultTitle = byId('results-title'); const verdictText = byId('verdictText'); const boundaryText = byId('boundaryText'); const whyCopy = byId('whyCopy'); const evidenceCards = byId('evidenceCards'); const gapCards = byId('gapCards'); const requirementsList = byId('requirementsList'); const evidenceGraph = byId('evidenceGraph'); const traceList = byId('traceList'); const traceCount = byId('traceCount');
 const explorer = byId('explorer'); const explorerTitle = byId('explorerTitle'); const explorerCitation = byId('explorerCitation'); const explorerCode = byId('explorerCode'); const explorerNote = byId('explorerNote'); const pathSection = byId('pathSection'); const codePaths = byId('codePaths'); const runtimePlanList = byId('runtimePlanList'); const documentEvidenceSection = byId('documentEvidenceSection'); const documentEvidenceCards = byId('documentEvidenceCards');
 const history = byId('history'); const historyList = byId('historyList'); const reviewQueue = byId('reviewQueue'); const reviewQueueList = byId('reviewQueueList'); const copyPrompt = byId('copyPrompt'); const exportEvidence = byId('exportEvidence'); const exportMarkdown = byId('exportMarkdown'); const reviewDecision = byId('reviewDecision'); const reviewOwner = byId('reviewOwner'); const reviewState = byId('reviewState'); const reviewDueDate = byId('reviewDueDate'); const reviewNotes = byId('reviewNotes'); const saveReview = byId('saveReview'); const reviewStatus = byId('reviewStatus'); const runClaim = byId('runClaim'); const gitContext = byId('gitContext'); const comparisonPanel = byId('comparisonPanel'); const comparisonText = byId('comparisonText'); const changedFiles = byId('changedFiles'); const testDiscovery = byId('testDiscovery'); const testCommands = byId('testCommands'); const testNote = byId('testNote'); const sandboxRunner = byId('sandboxRunner'); const sandboxCommand = byId('sandboxCommand'); const allowSetupNetwork = byId('allowSetupNetwork'); const runSandboxTest = byId('runSandboxTest'); const dockerStatus = byId('dockerStatus'); const sandboxResult = byId('sandboxResult'); const sandboxResultTitle = byId('sandboxResultTitle'); const sandboxResultMeta = byId('sandboxResultMeta'); const sandboxResultLog = byId('sandboxResultLog'); const sandboxResultBoundary = byId('sandboxResultBoundary'); const editRules = byId('editRules'); const rulesPanel = byId('rulesPanel'); const rulesInput = byId('rulesInput'); const saveRules = byId('saveRules'); const rulesStatus = byId('rulesStatus');
+const localRunner = byId('localRunner'); const localCommand = byId('localCommand'); const confirmTrustedLocal = byId('confirmTrustedLocal'); const runLocalTest = byId('runLocalTest'); const localRunStatus = byId('localRunStatus'); const localResult = byId('localResult'); const localResultTitle = byId('localResultTitle'); const localResultMeta = byId('localResultMeta'); const localResultLog = byId('localResultLog'); const localResultBoundary = byId('localResultBoundary');
 
 const defaultRepositoryPath = 'C:\\Users\\Naren\\Documents\\PROJECTSS\\SYNCSPACE';
 let source = { type: 'server', path: defaultRepositoryPath };
@@ -90,6 +91,17 @@ async function configureSandboxRunner(audit) {
   } catch { dockerStatus.textContent = 'Docker status could not be checked.'; runSandboxTest.disabled = true; }
 }
 
+function configureLocalRunner(audit) {
+  const commands = audit.testDiscovery?.commands || [];
+  if (source.type !== 'server' || !audit.repositoryPath || !commands.length) { localRunner.hidden = true; return; }
+  localRunner.hidden = false;
+  localCommand.innerHTML = commands.map((item) => `<option value="${escapeHtml(item.command)}">${escapeHtml(item.command)} — ${escapeHtml(item.manifest)}</option>`).join('');
+  confirmTrustedLocal.checked = false;
+  runLocalTest.disabled = true;
+  localResult.hidden = true;
+  localRunStatus.textContent = 'Choose a declared command and explicitly confirm local execution.';
+}
+
 function renderSandboxResult(result) {
   lastSandboxRun = result;
   sandboxResult.hidden = false;
@@ -115,7 +127,7 @@ function renderAudit(rawAudit) {
   explorer.hidden = true;
   if (audit.git) { const comparison = audit.comparison ? ` · compared with ${audit.comparison.baselineCommit || 'previous local audit'}: +${audit.comparison.newEvidence.length} / -${audit.comparison.removedEvidence.length} citations` : ''; gitContext.innerHTML = `<strong>Git context</strong> ${escapeHtml(audit.git.branch)} @ ${escapeHtml(audit.git.commit)} · ${audit.git.dirty ? 'working tree has changes' : 'working tree clean'}${escapeHtml(comparison)}`; gitContext.hidden = false; } else gitContext.hidden = true;
   if (audit.comparison) { const diff = audit.comparison.gitDiff; comparisonText.textContent = `Compared with ${audit.comparison.baselineCommit || 'the previous saved audit'}: ${audit.comparison.newEvidence.length} citation(s) added, ${audit.comparison.removedEvidence.length} removed; prior verdict was ${audit.comparison.previousVerdict}. ${diff?.note || ''}`; changedFiles.innerHTML = diff?.files?.map((file) => `<li><code>${escapeHtml(file)}</code></li>`).join('') || ''; comparisonPanel.hidden = false; } else comparisonPanel.hidden = true;
-  if (audit.testDiscovery) { testCommands.innerHTML = audit.testDiscovery.commands.map((item) => `<li><code>${escapeHtml(item.command)}</code> <span>${escapeHtml(item.manifest)} — ${escapeHtml(item.script)}</span></li>`).join('') || '<li>No declared test, e2e, or check script discovered.</li>'; testNote.textContent = audit.testDiscovery.note; testDiscovery.hidden = false; configureSandboxRunner(audit); } else { testDiscovery.hidden = true; sandboxRunner.hidden = true; }
+  if (audit.testDiscovery) { testCommands.innerHTML = audit.testDiscovery.commands.map((item) => `<li><code>${escapeHtml(item.command)}</code> <span>${escapeHtml(item.manifest)} — ${escapeHtml(item.script)}</span></li>`).join('') || '<li>No declared test, e2e, or check script discovered.</li>'; testNote.textContent = audit.testDiscovery.note; testDiscovery.hidden = false; configureSandboxRunner(audit); configureLocalRunner(audit); } else { testDiscovery.hidden = true; sandboxRunner.hidden = true; localRunner.hidden = true; }
   lastAudit = { claim, source, audit }; lastSandboxRun = null; populateReview(audit);
 }
 
@@ -153,7 +165,7 @@ copyPrompt.addEventListener('click', async () => { const pack = evidencePack(); 
 runSandboxTest.addEventListener('click', async () => {
   if (!lastAudit || !sandboxCommand.value) return;
   runSandboxTest.disabled = true;
-  runSandboxTest.textContent = 'Running isolated test…';
+  runSandboxTest.textContent = 'Running isolated command…';
   try {
     const response = await fetch('/api/test-run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ repoPath: lastAudit.audit.repositoryPath, repoName: lastAudit.audit.repoName, command: sandboxCommand.value, allowSetupNetwork: allowSetupNetwork.checked, claim: lastAudit.claim, auditId: lastAudit.audit.auditId }) });
     const result = await response.json();
@@ -163,7 +175,32 @@ runSandboxTest.addEventListener('click', async () => {
     renderSandboxResult({ status: 'failed', command: sandboxCommand.value, setup: { log: error instanceof Error ? error.message : 'Sandbox test could not be completed.' }, boundary: 'No runtime conclusion should be drawn from an incomplete sandbox run.' });
   } finally {
     runSandboxTest.disabled = false;
-    runSandboxTest.textContent = 'Run selected test';
+    runSandboxTest.textContent = 'Run selected command';
+  }
+});
+
+confirmTrustedLocal.addEventListener('change', () => { runLocalTest.disabled = !confirmTrustedLocal.checked; });
+runLocalTest.addEventListener('click', async () => {
+  if (!lastAudit || !localCommand.value || !confirmTrustedLocal.checked) return;
+  runLocalTest.disabled = true;
+  runLocalTest.textContent = 'Running local command…';
+  localRunStatus.textContent = 'The selected declared command is running in the local repository.';
+  try {
+    const response = await fetch('/api/local-test-run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ repoPath: lastAudit.audit.repositoryPath, repoName: lastAudit.audit.repoName, command: localCommand.value, trustedLocal: true, claim: lastAudit.claim, auditId: lastAudit.audit.auditId }) });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'The local command could not be completed.');
+    lastSandboxRun = result;
+    localResult.hidden = false;
+    localResultTitle.textContent = result.status === 'passed' ? 'Local command passed' : 'Local command failed';
+    localResultMeta.textContent = `${result.command}${result.test?.exitCode !== null && result.test?.exitCode !== undefined ? ` · exit ${result.test.exitCode}` : ''}`;
+    localResultLog.textContent = result.test?.log || 'No command output was captured.';
+    localResultBoundary.textContent = result.boundary;
+    localRunStatus.textContent = 'The result is saved as bounded local execution evidence.';
+  } catch (error) {
+    localRunStatus.textContent = error instanceof Error ? error.message : 'The local command could not be completed.';
+  } finally {
+    runLocalTest.disabled = !confirmTrustedLocal.checked;
+    runLocalTest.textContent = 'Run locally';
   }
 });
 
