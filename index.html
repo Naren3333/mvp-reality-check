@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#080d22" />
+    <title>MVP Reality Check — Claim-to-code evidence auditor</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <a class="wordmark" href="#top" aria-label="MVP Reality Check home">
+          <span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span>MVP <em>Reality Check</em></span>
+        </a>
+        <span class="mode"><span></span> Read-only review</span>
+      </header>
+
+      <section id="top" class="intro" aria-labelledby="page-title">
+        <p class="eyebrow">Claim-to-code evidence auditor</p>
+        <h1 id="page-title">Test the story<br />against the source.</h1>
+        <p class="lede">Map a product claim to expected source evidence, inspect deterministic checks, and make the final call with a human reviewer.</p>
+      </section>
+
+      <section id="intake" class="intake" aria-label="Audit setup">
+        <div class="field-group">
+          <label for="claim">Product claim</label>
+          <div class="claim-input-wrap">
+            <span class="quote-mark" aria-hidden="true">“</span>
+            <input id="claim" type="text" value="Study groups can search shared notes semantically with AI." aria-label="Product claim" />
+          </div>
+        </div>
+        <div class="field-group">
+          <span class="field-label">Repository</span>
+          <button id="repoButton" class="repo-card" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Selected repository: northstar reporting web">
+            <span class="repo-icon" aria-hidden="true">⌘</span>
+            <span><strong id="repoName">syncspace</strong><small id="repoMeta">main · demo source profile</small></span>
+            <span class="repo-check" aria-hidden="true">✓</span>
+          </button>
+          <div id="repoPicker" class="repo-picker" hidden>
+            <p>Repository source</p>
+            <button id="useDemo" type="button"><span class="picker-check">✓</span><span><strong>syncspace</strong><small>Use the included demo evidence profile</small></span></button>
+            <button id="chooseFolder" type="button"><span class="picker-folder">⌁</span><span><strong>Choose a local project folder</strong><small>Run deterministic source checks in this browser</small></span></button>
+            <button id="choosePath" type="button"><span class="picker-folder">⌗</span><span><strong>Audit a local repository path</strong><small>Server-side local scan with saved audit history</small></span></button>
+            <div id="pathEntry" class="path-entry" hidden>
+              <label for="repoPathInput">Local project path</label>
+              <div><input id="repoPathInput" type="text" placeholder="C:\\Projects\\my-repository" /><button id="usePath" type="button">Use path</button></div>
+            </div>
+            <p class="picker-note">Local scans are read only. Paths and source contents are never uploaded by this demo.</p>
+          </div>
+          <input id="folderInput" type="file" webkitdirectory directory multiple hidden />
+        </div>
+        <button id="auditButton" class="primary" type="button">
+          <span>Audit claim</span><span class="arrow" aria-hidden="true">→</span>
+        </button>
+        <p class="intake-note">Source review only. This audit does not verify runtime behavior or make a security determination.</p>
+      </section>
+
+      <section id="progress" class="progress-view" aria-live="polite" hidden>
+        <div class="run-header">
+          <p class="eyebrow">Deterministic audit in progress</p>
+          <p id="runClaim" class="run-claim">“Study groups can search shared notes semantically with AI.”</p>
+        </div>
+        <ol class="stages">
+          <li data-stage="0"><span class="stage-state"></span><span>Mapping expected evidence</span><small>claim → source expectations</small></li>
+          <li data-stage="1"><span class="stage-state"></span><span>Checking routes and components</span><small>repository paths</small></li>
+          <li data-stage="2"><span class="stage-state"></span><span>Checking authorization signals</span><small>route-level source</small></li>
+          <li data-stage="3"><span class="stage-state"></span><span>Checking tests</span><small>automated access control</small></li>
+          <li data-stage="4"><span class="stage-state"></span><span>Linking cited evidence</span><small>review-ready summary</small></li>
+        </ol>
+        <p class="progress-foot"><span class="pulse"></span>Inspecting local mock evidence only</p>
+      </section>
+
+      <section id="results" class="results" hidden aria-labelledby="results-title">
+        <div class="result-heading">
+          <div>
+            <p class="eyebrow">Audit result <span class="dot-separator">·</span> source evidence only</p>
+            <h2 id="results-title">Study groups can search shared notes semantically with AI.</h2>
+          </div>
+          <button id="rerunButton" class="quiet-button" type="button">↻&nbsp; Re-run audit</button>
+        </div>
+
+        <div class="verdict-row">
+          <div class="verdict">
+            <p>Verdict</p>
+            <strong id="verdictText"><span class="verdict-dot"></span>Partially evidenced</strong>
+          </div>
+          <p id="boundaryText" class="boundary"><span>Boundary</span>Do not present it as secure without runtime and human verification.</p>
+        </div>
+
+        <div class="evidence-layout">
+          <section class="evidence-section" aria-labelledby="evidence-title">
+            <div class="section-heading"><p class="section-kicker">Supported in source</p><h3 id="evidence-title">Cited evidence</h3></div>
+            <div id="evidenceCards">
+            <article class="evidence-card">
+              <div class="status-icon evidence-icon">↗</div>
+              <div><p class="citation">apps/web/components/app/workspace-organization.tsx:67</p><h4>Workspace search UI</h4><p>Source contains an interface that calls the workspace search operation.</p></div>
+              <span class="source-tag">component</span>
+            </article>
+            <article class="evidence-card">
+              <div class="status-icon evidence-icon">↗</div>
+              <div><p class="citation">apps/api/internal/http/handlers/organization.go:495</p><h4>Workspace search endpoint</h4><p>Source contains a membership-scoped workspace search handler.</p></div>
+              <span class="source-tag">route</span>
+            </article>
+            </div>
+          </section>
+          <section class="gap-section" aria-labelledby="gaps-title">
+            <div class="section-heading"><p class="section-kicker amber-text">Not evidenced in source</p><h3 id="gaps-title">Evidence gaps</h3></div>
+            <div id="gapCards">
+            <article class="gap-card">
+              <div class="status-icon gap-icon">!</div>
+              <div><h4>No AI or semantic-retrieval integration evidence found</h4><p>The cited search implementation does not establish source evidence of an LLM, embeddings, or semantic retrieval.</p></div>
+            </article>
+            <article class="gap-card">
+              <div class="status-icon gap-icon">!</div>
+              <div><h4>No automated AI-search integration test found</h4><p>No test citation was found to demonstrate AI-assisted or semantic-search behavior.</p></div>
+            </article>
+            </div>
+          </section>
+        </div>
+
+        <section class="why-section" aria-labelledby="why-title">
+          <div class="why-heading"><p class="section-kicker">Explanation</p><h3 id="why-title">Why this verdict?</h3></div>
+          <p id="whyCopy">The source supports that SyncSpace has workspace-scoped text search. It does not provide evidence of an AI model, embeddings, or semantic retrieval. This is a source-evidence assessment, not proof of runtime behavior or an AI capability.</p>
+          <div class="human-review"><span class="human-icon" aria-hidden="true">◎</span><div><strong>Human review required</strong><span>Verify runtime controls, intended roles, and the relevance of cited source evidence before making an external claim.</span></div></div>
+        </section>
+
+        <details class="trace">
+          <summary><span>Audit trace</span><small>5 deterministic checks</small><span class="chevron">⌄</span></summary>
+          <ol id="traceList">
+            <li><span>01</span> Mapped the claim to search UI, search endpoint, AI/semantic retrieval, and integration-test expectations.</li>
+            <li><span>02</span> Found <code>workspace-organization.tsx</code> as workspace search UI evidence.</li>
+            <li><span>03</span> Found <code>organization.go</code> as workspace search endpoint evidence.</li>
+            <li><span>04</span> No source evidence of an LLM, embeddings, or semantic retrieval was cited.</li>
+            <li><span>05</span> No automated AI-search integration test was cited.</li>
+          </ol>
+        </details>
+
+        <section class="legend" aria-label="Verdict legend">
+          <p>Bounded outcomes</p>
+          <span><i class="legend-green"></i>Evidenced in source</span>
+          <span><i class="legend-amber"></i>Partially evidenced</span>
+          <span><i class="legend-muted"></i>No supporting evidence found</span>
+          <span><i class="legend-blue"></i>Requires runtime / human verification</span>
+        </section>
+        <section id="codexHandoff" class="codex-handoff" aria-label="Optional AI explanation step">
+          <div><p class="section-kicker">Optional AI step</p><h3>Prepare a bounded review pack</h3><p>Export cited evidence and gaps for a reviewer to use with Codex. The AI can explain relevance; it does not determine the verdict.</p></div>
+          <div class="handoff-actions"><button id="copyPrompt" class="quiet-button" type="button">Copy Codex review prompt</button><button id="exportEvidence" class="quiet-button" type="button">Export evidence pack</button></div>
+        </section>
+        <section id="history" class="history" hidden aria-labelledby="historyTitle">
+          <div><p class="section-kicker">Local history</p><h3 id="historyTitle">Recent audits</h3></div>
+          <ol id="historyList"></ol>
+        </section>
+      </section>
+      <footer><span>Evidence is cited. Judgment stays human.</span><span>Local demo · no repository data leaves this device</span></footer>
+    </main>
+    <script src="app.js"></script>
+  </body>
+</html>
