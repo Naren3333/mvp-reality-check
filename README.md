@@ -4,11 +4,13 @@ Dependency-free local prototype for the interview presentation.
 
 ## Run the demo
 
-From this folder, either double-click `start-demo.cmd` in File Explorer, or run:
+From this folder, either double-click `start-demo.cmd` in File Explorer, or run this in PowerShell:
 
 ```powershell
-npm run demo
+.\start-demo.cmd
 ```
+
+If you prefer Command Prompt, run `npm run demo` there. The batch launcher avoids Windows PowerShell execution-policy errors that can block `npm.ps1` on some machines.
 
 Open [http://localhost:4176](http://localhost:4176). Keep the terminal window open throughout the demo; it is the local server. Press `Ctrl+C` in that window when you want to stop it. This avoids relying on a hidden background process that Windows or a coding tool may clean up.
 
