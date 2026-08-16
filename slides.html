@@ -23,70 +23,70 @@
       </header>
 
       <section class="slides" aria-live="polite">
-        <article class="slide slide-active" data-slide="0" aria-label="Slide 1: a working prototype, not just a concept">
+        <article class="slide slide-active" data-slide="0" aria-label="Slide 1: the language-to-evidence problem">
           <div class="slide-heading">
-            <p class="eyebrow">Interview demo · working artifact</p>
-            <h1>A working prototype —<br /><span>not just a concept.</span></h1>
-            <p class="lede">A claim-first evidence audit with local and public-GitHub source checks, bounded test runs, and human review.</p>
+            <p class="eyebrow">Problem framing · language-to-evidence gap</p>
+            <h1>Product claims are English.<br /><span>Evidence lives in code.</span></h1>
+            <p class="lede">The difficult step is not only searching a repository. It is turning an ambiguous business claim into the right technical questions.</p>
           </div>
 
           <div class="prototype-layout">
             <figure class="screenshot-frame">
-              <div class="screenshot-label"><span class="status-dot"></span>LIVE LOCAL PROTOTYPE <b>localhost:4176</b></div>
+              <div class="screenshot-label"><span class="status-dot"></span>WORKING DETERMINISTIC PROTOTYPE <b>localhost:4176</b></div>
               <img src="appss.png" alt="MVP Reality Check claim-auditing interface with a claim input, local repository selector, and audit button" />
-              <figcaption>Claim → local or public-GitHub scan → cited evidence, gaps, bounded verdict, audit trace</figcaption>
+              <figcaption>Known evidence plan → source scan → cited evidence, gaps, bounded verdict, audit trace</figcaption>
             </figure>
 
             <aside class="proof-list">
-              <p class="eyebrow">What this proves</p>
+              <p class="eyebrow">Why templates do not scale</p>
               <ol>
-                <li><b>01</b><span><strong>Claim-first workflow</strong> — start from the product assertion, then choose a local repository or public GitHub URL.</span></li>
-                <li><b>02</b><span><strong>Evidence-linked result</strong> — SyncSpace search exists; AI semantic search is not asserted without retrieval or model evidence.</span></li>
-                <li><b>03</b><span><strong>Bounded execution evidence</strong> — run one declared test/build in Docker, or locally only after an explicit trust confirmation.</span></li>
+                <li><b>01</b><span><strong>Known claim types work</strong> — templates turn “AI search” or “secure export” into explicit source and test requirements.</span></li>
+                <li><b>02</b><span><strong>Arbitrary language does not</strong> — “secure,” “fast,” or “collaborative” mean different technical evidence in different architectures.</span></li>
+                <li><b>03</b><span><strong>The safe failure is useful</strong> — a generic scan can say “insufficient evidence,” but cannot responsibly infer the missing checks by itself.</span></li>
               </ol>
-              <div class="scope-note"><span>Intentional scope</span><p>No API key or cloud upload. Public repositories are shallow-cloned locally; source and test results never become production or security proof.</p></div>
+              <div class="scope-note"><span>Thesis</span><p>AI becomes meaningful at this translation boundary: it can propose a structured evidence plan, while deterministic code checks keep the result grounded.</p></div>
             </aside>
           </div>
 
-          <footer class="slide-footer"><span>Evidence is cited. Judgment stays human.</span><button class="open-demo" type="button">Open live prototype ↗</button></footer>
+          <footer class="slide-footer"><span>Before AI: one prebuilt template per claim type. With AI: a constrained plan for unfamiliar claims.</span><button class="open-demo" type="button">Open live prototype ↗</button></footer>
         </article>
 
-        <article class="slide" data-slide="1" aria-label="Slide 2: the prototype has deliberate boundaries before scale" hidden>
+        <article class="slide" data-slide="1" aria-label="Slide 2: AI plans, deterministic checks verify, humans decide" hidden>
           <div class="slide-heading compact-heading">
-            <p class="eyebrow">Product judgment · deliberate boundaries</p>
-            <h1>A working core —<br /><span>with honest boundaries.</span></h1>
-            <p class="lede">The prototype proves a claim-to-evidence loop across local folders and public GitHub repositories. The remaining gaps are production decisions, not ignored checkboxes.</p>
+            <p class="eyebrow">Solution design · constrained AI augmentation</p>
+            <h1>AI writes the evidence plan.<br /><span>Software verifies it. Humans decide.</span></h1>
+            <p class="lede">This is an augmentation loop, not a chatbot that declares a product claim true.</p>
           </div>
 
           <div class="boundary-layout">
             <section class="core-loop">
-              <p class="eyebrow">Core loop proven</p>
+              <p class="eyebrow">Target evidence loop</p>
               <ol>
-                <li><b>01</b><span><small>INPUT</small>Explicit product claim + local folder or public GitHub URL</span></li>
-                <li><b>02</b><span><small>CHECK</small>Deterministic source scan + optional selected test/build</span></li>
-                <li><b>03</b><span><small>OUTPUT</small>Cited evidence, gaps, execution record, and bounded verdict</span></li>
+                <li><b>01</b><span><small>INPUT</small>Any product claim + local folder or public GitHub URL</span></li>
+                <li><b>02</b><span><small>AI PLAN</small>Schema-constrained requirements, search concepts, uncertainty, and runtime questions</span></li>
+                <li><b>03</b><span><small>VERIFY</small>Deterministic source checks + optional reviewer-selected test/build</span></li>
                 <li><b>04</b><span><small>DECISION</small>Human review and accountability</span></li>
               </ol>
-              <div class="human-boundary"><span>Human boundary</span><p>Codex can explain a reviewer-selected evidence pack; it never runs automatically or determines the verdict.</p></div>
+              <div class="human-boundary"><span>Guardrail</span><p>AI may propose a plan or explain resolved citations. It cannot invent evidence, run arbitrary commands, or set the verdict.</p></div>
             </section>
             <section class="deferred-work" aria-label="Current product boundaries">
-              <p class="eyebrow">Current boundaries</p>
-              <h2>What is not in v1 — and why</h2>
+              <p class="eyebrow">What is real today · what AI adds next</p>
+              <h2>The prototype proves the verifier, then exposes the AI opportunity.</h2>
               <div class="deferred-grid">
-                <article><span>Private repository access</span><p>Public HTTPS GitHub URLs work today. Private GitHub/GitLab access needs OAuth, token handling, consent, and permission design.</p></article>
-                <article><span>Arbitrary code execution</span><p>The app runs only a reviewer-selected declared npm script. Docker is isolated; trusted local execution requires explicit confirmation.</p></article>
-                <article><span>Live AI explanation</span><p>No API key is embedded. Codex is a manual, explanation-only review step and never generates a verdict.</p></article>
-                <article><span>Teams and governance</span><p>Shared workspaces need authentication, tenant isolation, retention controls, and durable audit logging.</p></article>
+                <article><span>Working now: evidence engine</span><p>Local/public-GitHub scans cite code, identify gaps, record history, and run one declared build or test with explicit review.</p></article>
+                <article><span>AI next: interpretation</span><p>Translate unfamiliar English claims into a typed evidence plan instead of requiring a new hand-authored template.</p></article>
+                <article><span>AI next: explanation</span><p>Summarise only cited source and execution evidence; surface ambiguity and questions for the reviewer.</p></article>
+                <article><span>Still human: product judgment</span><p>Security, production behaviour, claim wording, and investment decisions remain review decisions, not model outputs.</p></article>
               </div>
             </section>
           </div>
 
           <section class="next-build" aria-label="Deliberate next build">
-            <div><p class="eyebrow">Sensible next build</p><h2>Private-repo connection → queued isolated workers → evidence explanation service</h2></div>
-            <p>Build capability in layers—without weakening accountability.<small>Then: AST/framework adapters · queued large-repository indexing · dependency, CI, and infrastructure evidence · production operations</small></p>
+            <div><p class="eyebrow">Demo proof</p><h2>SyncSpace: ordinary search is cited; “semantic with AI” remains only partially evidenced.</h2></div>
+            <p>That gap is the product opportunity.<small>Next: private-repo access · validated model JSON plans · framework/AST adapters · queued isolated workers · explanation service</small></p>
           </section>
 
-          <footer class="slide-footer"><span>Not a pretend enterprise platform: a working core loop with honest boundaries.</span><button class="open-demo" type="button">Open live prototype ↗</button></footer>
+          <footer class="slide-footer"><span>The model extends judgment; the evidence engine and reviewer constrain it.</span><button class="open-demo" type="button">Open live prototype ↗</button></footer>
         </article>
       </section>
 
